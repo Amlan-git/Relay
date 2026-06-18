@@ -237,7 +237,7 @@ function formatReport(
       : "> Stage 1 (draft) wired in but no `GEMINI_API_KEY` — fell back to stub output.",
   );
   lines.push(
-    "> **Step 3 baseline only.** Full structural diff + hallucination detection land in Step 4 (Verify). Treat the structural-completeness numbers below as a directional proxy.",
+    "> Stage 2 (verify) uses deterministic significant-node coverage and explicit node-reference hallucination checks.",
   );
   lines.push("");
 
@@ -282,14 +282,20 @@ function formatReport(
 
   lines.push("## Per-workflow scores");
   lines.push("");
-  lines.push("| Workflow | Nodes | Systems | Baseline / proxy structural completeness | Hallucinations | Inferred score |");
-  lines.push("|---|---|---|---|---|---|");
+  lines.push("| Workflow | Nodes | Systems | Structural completeness | Pass | Missing nodes | Hallucinations | Inferred token overlap |");
+  lines.push("|---|---|---|---|---|---|---|---|");
   for (const r of results) {
     totalCompleteness += r.score.structuralCompleteness;
     totalHallucinations += r.score.hallucinationCount;
     totalInferred += r.score.inferredSectionScore;
+    const missing = r.score.missingNodes.length
+      ? r.score.missingNodes.join(", ")
+      : "-";
+    const hallucinated = r.score.hallucinatedNodes.length
+      ? r.score.hallucinatedNodes.join(", ")
+      : "-";
     lines.push(
-      `| ${r.name} | ${r.representation.nodes.length} | ${r.representation.systems.length} | ${(r.score.structuralCompleteness * 100).toFixed(1)}% | ${r.score.hallucinationCount} | ${(r.score.inferredSectionScore * 100).toFixed(1)}% |`,
+      `| ${r.name} | ${r.representation.nodes.length} | ${r.representation.systems.length} | ${(r.score.structuralCompleteness * 100).toFixed(1)}% | ${r.score.passed ? "PASS" : "FAIL"} | ${missing} | ${hallucinated} | ${(r.score.inferredSectionScore * 100).toFixed(1)}% |`,
     );
   }
 
@@ -297,8 +303,9 @@ function formatReport(
   lines.push("");
   lines.push("## Aggregate");
   lines.push("");
-  lines.push(`- Avg baseline structural completeness: ${((totalCompleteness / n) * 100).toFixed(1)}%`);
+  lines.push(`- Avg structural completeness: ${((totalCompleteness / n) * 100).toFixed(1)}%`);
   lines.push(`- Total hallucinations: ${totalHallucinations}`);
+  lines.push(`- Passing workflows: ${results.filter((r) => r.score.passed).length}/${n}`);
   lines.push(`- Avg inferred-section score: ${((totalInferred / n) * 100).toFixed(1)}%`);
   lines.push("");
 
@@ -354,7 +361,7 @@ async function main() {
       const score = scoreSOP(generatedSOP, c.goldSOP, representation);
       results.push({ ...c, representation, generatedSOP, score });
       console.log(
-        `[eval] ${c.name}: nodes=${representation.nodes.length} systems=${representation.systems.length} completeness=${(score.structuralCompleteness * 100).toFixed(1)}% hallucinations=${score.hallucinationCount}`,
+        `[eval] ${c.name}: nodes=${representation.nodes.length} systems=${representation.systems.length} completeness=${(score.structuralCompleteness * 100).toFixed(1)}% pass=${score.passed ? "yes" : "no"} missing=${score.missingNodes.length} hallucinations=${score.hallucinationCount}`,
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message.split("\n")[0] : String(err);

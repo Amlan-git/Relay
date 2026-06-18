@@ -1,17 +1,10 @@
-/**
- * Eval scoring — stubbed. Real structural diff + LLM-as-judge lands after the parser
- * and agent are wired up (steps 2-4 in the build plan).
- *
- * The function signature is the contract: (generatedSOP, goldSOP, workflowRepresentation)
- * → structural completeness, hallucination count, inferred-section score.
- */
-
 import type { SOP } from "../lib/agent/types";
+import { verifySOP, type VerificationReport } from "../lib/agent/verify";
 import type { WorkflowRepresentation } from "../lib/parser/types";
 
 export type { SOP } from "../lib/agent/types";
 
-export interface SOPScore {
+export interface SOPScore extends VerificationReport {
   structuralCompleteness: number;
   hallucinationCount: number;
   inferredSectionScore: number;
@@ -22,22 +15,13 @@ export function scoreSOP(
   goldSOP: SOP,
   workflowRepresentation: WorkflowRepresentation,
 ): SOPScore {
-  const nodeNames = workflowRepresentation.nodes.map((n) => n.name);
+  const verification = verifySOP(generatedSOP, workflowRepresentation);
   const generatedText = [
     generatedSOP.overview,
     generatedSOP.atAGlance,
     generatedSOP.howItWorks,
     generatedSOP.troubleshooting,
   ].join("\n");
-
-  const nodesMentioned = nodeNames.filter((name) =>
-    generatedText.toLowerCase().includes(name.toLowerCase()),
-  ).length;
-
-  const structuralCompleteness =
-    nodeNames.length === 0 ? 0 : nodesMentioned / nodeNames.length;
-
-  const hallucinationCount = 0;
 
   const goldText = [
     goldSOP.overview,
@@ -55,8 +39,8 @@ export function scoreSOP(
     goldTokens.size === 0 ? 0 : overlap / goldTokens.size;
 
   return {
-    structuralCompleteness,
-    hallucinationCount,
+    ...verification,
+    hallucinationCount: verification.hallucinatedNodes.length,
     inferredSectionScore,
   };
 }
