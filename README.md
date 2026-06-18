@@ -2,7 +2,7 @@
 
 Relay turns an exported n8n workflow JSON file into a client-ready Notion SOP.
 
-It is built for the Zentra Labs take-home assignment: the important story is not just that an LLM writes text, but that the app parses workflow structure first, drafts from that representation, verifies the draft against the source, and only then publishes a reviewable Notion page.
+It is built for the AI Automation consultations: the important story is not just that an LLM writes text, but that the app parses workflow structure first, drafts from that representation, verifies the draft against the source, and only then publishes a reviewable Notion page.
 
 ## Why it exists
 
