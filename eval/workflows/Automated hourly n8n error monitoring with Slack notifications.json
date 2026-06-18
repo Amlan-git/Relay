@@ -1,0 +1,285 @@
+{
+  "name": "Automated hourly n8n error monitoring with Slack notifications",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "id": "45a1993e-1a89-4077-b258-75c8d4e74bbb",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        368,
+        464
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "filters": {
+          "activeWorkflows": true
+        },
+        "requestOptions": {}
+      },
+      "id": "3491cecc-6ffc-4798-a5f4-a6230408010b",
+      "name": "GetWorkflows",
+      "type": "n8n-nodes-base.n8n",
+      "position": [
+        832,
+        464
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "4f10d86d-1410-45c6-892a-e113fd4cb2b3",
+      "name": "Loop",
+      "type": "n8n-nodes-base.splitInBatches",
+      "position": [
+        1056,
+        464
+      ],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "resource": "execution",
+        "limit": 1,
+        "filters": {
+          "workflowId": {
+            "__rl": true,
+            "mode": "id",
+            "value": ""
+          },
+          "status": "error"
+        },
+        "options": {
+          "activeWorkflows": false
+        },
+        "requestOptions": {}
+      },
+      "id": "b06a9bcb-4fc6-488c-bb3e-7cf1f81547ca",
+      "name": "n8n",
+      "type": "n8n-nodes-base.n8n",
+      "position": [
+        1248,
+        528
+      ],
+      "typeVersion": 1,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "9012633d-3dcd-4bf5-9645-b90e51129a35",
+      "name": "Aggregate",
+      "type": "n8n-nodes-base.aggregate",
+      "position": [
+        1472,
+        528
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "const list = $input.all().map(item => item.json);\nconsole.log(list)\nlet blocks = [];\n\nfor (const item of list) {\n  if(item.qtdErrors > 0){\n    console.log(item)\n    blocks.push({\n\t\t\t\"type\": \"section\",\n\t\t\t\"text\": {\n\t\t\t\t\"type\": \"mrkdwn\",\n\t\t\t\t\"text\": `:aviso: *${item.workflowName}*\\n *${item.qtdErrors}* errors found in the last run`\n\t\t\t},\n\t\t\t\"accessory\": {\n\t\t\t\t\"type\": \"button\",\n\t\t\t\t\"text\": {\n\t\t\t\t\t\"type\": \"plain_text\",\n\t\t\t\t\t\"text\": \"Vizualize\",\n\t\t\t\t\t\"emoji\": true\n\t\t\t\t},\n\t\t\t\t\"value\": \"click_me_123\",\n\t\t\t\t\"url\": `${item.url}`,\n\t\t\t\t\"action_id\": \"button-action\"\n\t\t\t}\n\t\t})\n  }\n}\n\nif(blocks.length > 0){\n  return {\n    blocks: blocks\n  };\n}else{\n  return null\n}\n"
+      },
+      "id": "fd91c759-7ee6-45d8-96dd-91eabeb38796",
+      "name": "MakeMessage",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1248,
+        368
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const list = $(\"Aggregate\").last().json.data;\n\nconst lastHour = new Date();\nlastHour.setHours(lastHour.getHours() - 1);\n\n\nconst executionsLastHour = list.filter(execution => {\n  const dataStoppedAt = new Date(execution.stoppedAt);\n\n  return dataStoppedAt > lastHour;\n});\n\nif (executionsLastHour.length > 0) {\n  console.log(`Foram encontrados ${executionsLastHour.length} itens da última hora.`);\n} else {\n  console.log(\"Nenhum item da última hora foi encontrado.\");\n}\n\nreturn {\n  workflowId: $(\"Loop\").last().json.id,\n  workflowName: $(\"Loop\").last().json.name,\n  qtdErrors: executionsLastHour.length,\n  url: $(\"Config\").last().json.urlBase + $(\"Loop\").last().json.id\n}"
+      },
+      "id": "51db21fc-6bf1-4652-944f-a00f15f492b5",
+      "name": "FilterLastHour",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1696,
+        528
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "content": "## Slack - Errors last 60 minutes\n\nThis workflow's objective is to monitor for errors and notify via Slack which workflows had failed executions in the last hour, providing a simple table with the ID, name, and error count.\n\nLinkedin: https://www.linkedin.com/in/matheus-pedrosa-custodio/",
+        "height": 200,
+        "width": 360
+      },
+      "id": "93684cff-609d-4b10-b375-d01724f03a42",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        368,
+        240
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "messageType": "block",
+        "blocksUi": "={{ $json }}",
+        "text": "=",
+        "otherOptions": {}
+      },
+      "id": "c11de8c2-1478-49ff-93a8-9cfeacb58507",
+      "name": "Slack",
+      "type": "n8n-nodes-base.slack",
+      "position": [
+        1472,
+        368
+      ],
+      "typeVersion": 2.2,
+      "webhookId": "6013d7e6-2d0f-467b-879c-124a0e19a9e7"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"urlBase\": \"https://n8n.com/workflow/\"\n}\n",
+        "options": {}
+      },
+      "id": "28c56721-55d9-448a-8311-57413b0deb84",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        608,
+        464
+      ],
+      "typeVersion": 3.4
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "n8n": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop": {
+      "main": [
+        [
+          {
+            "node": "MakeMessage",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "n8n",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "GetWorkflows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "FilterLastHour",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MakeMessage": {
+      "main": [
+        [
+          {
+            "node": "Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetWorkflows": {
+      "main": [
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FilterLastHour": {
+      "main": [
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "ec0d68af-7013-498f-81f9-098544ff1683",
+  "meta": {
+    "templateId": "7076",
+    "instanceId": "f7aa6c7425c90f02115a48b3b394ec9b6e03a65bab407407963bd0455a7221fd"
+  },
+  "nodeGroups": [],
+  "id": "oPrxeiHL5ACa8Re8",
+  "tags": []
+}

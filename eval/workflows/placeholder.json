@@ -1,0 +1,6 @@
+{
+  "name": "placeholder",
+  "nodes": [],
+  "connections": {},
+  "_comment": "Placeholder workflow so the eval harness has something to load end-to-end. Real n8n workflow JSONs land here in step 1.5."
+}
